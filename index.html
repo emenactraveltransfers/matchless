@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Route Transfers</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jsPDF & AutoTable for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  
+  <style>
+    .view-section { display: none; }
+    .view-section.active { display: block; }
+    
+    /* Ensure select options render cleanly in dark mode */
+    select option {
+      background-color: #1f2937;
+      color: #f9fafb;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-950 text-gray-100 font-sans pb-20">
+
+  <!-- HEADER -->
+  <header class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex justify-between items-center shadow-lg">
+    <a href="#" onclick="showView('view-itinerary')" class="flex items-center gap-3">
+      <img id="header-logo" src="https://admin.emenactravel.co.uk/storage/uploads/settings/1755082130_logo.svg" alt="Emenac Travel" class="h-12 object-contain filter drop-shadow" onerror="this.onerror=null; this.src='https://via.placeholder.com/150x50/1e293b/ffffff?text=Emenac+Travel';">
+    </a>
+    <nav class="flex gap-6 text-sm font-medium text-gray-400">
+      <a href="#" class="text-blue-400 border-b-2 border-blue-500 pb-4 -mb-4 font-bold">Transfers</a>
+    </nav>
+  </header>
+
+  <main class="max-w-5xl mx-auto mt-10 px-4">
+    
+    <!-- STEP 1: ITINERARY (CART) VIEW -->
+    <div id="view-itinerary" class="view-section active">
+      <div class="flex justify-between items-center mb-8">
+        <div>
+          <h1 class="text-3xl font-bold text-white tracking-tight">Your Transfer Itinerary</h1>
+          <p class="text-gray-400 mt-2">Build your multi-route journey</p>
+        </div>
+        <button onclick="showView('view-search')" class="px-6 py-3 bg-blue-600/20 text-blue-400 border border-blue-500/30 font-bold rounded-xl hover:bg-blue-600/30 transition-all">
+          + Add Route
+        </button>
+      </div>
+
+      <div id="itinerary-empty" class="bg-gray-900 p-12 rounded-2xl shadow-xl border border-gray-800 text-center">
+        <div class="text-5xl mb-4">🗺️</div>
+        <h3 class="text-xl font-bold text-white mb-2">No transfers added yet</h3>
+        <p class="text-gray-400 mb-6">Click below to search for your route and vehicle options.</p>
+        <button onclick="showView('view-search')" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20">
+          Add First Route
+        </button>
+      </div>
+
+      <div id="itinerary-list-container" class="hidden">
+        <div id="itinerary-items" class="space-y-4 mb-8"></div>
+        <div class="bg-gray-900 border border-gray-800 text-white p-6 rounded-2xl flex justify-between items-center shadow-xl">
+          <div>
+            <div class="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Total Itinerary Price</div>
+            <div id="itinerary-total" class="text-3xl font-black text-blue-400">SAR 0</div>
+          </div>
+          <button onclick="showView('view-checkout')" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-600/20">
+            Proceed to Checkout →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: SEARCH / ADD LEG -->
+    <div id="view-search" class="view-section">
+      <button onclick="showView('view-itinerary')" class="text-gray-400 font-medium mb-6 flex items-center gap-2 hover:text-white transition-colors">
+        ← Cancel & Go Back
+      </button>
+      <div class="bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800 p-8">
+        <h2 class="text-2xl font-bold text-white mb-6">Select Transfer Details</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60 md:col-span-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Select Route *</label>
+            <select id="search-route" class="w-full bg-transparent font-medium focus:outline-none text-white text-lg"></select>
+          </div>
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Date *</label>
+            <input type="date" id="search-date" class="w-full bg-transparent font-medium focus:outline-none text-white [color-scheme:dark]" />
+          </div>
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Time *</label>
+            <input type="time" id="search-time" class="w-full bg-transparent font-medium focus:outline-none text-white [color-scheme:dark]" />
+          </div>
+          <div class="bg-gray-800/60 p-4 rounded-xl border border-gray-700/60 md:col-span-2">
+            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Number of Passengers *</label>
+            <input type="number" id="search-pax" min="1" max="30" value="2" class="w-full bg-transparent font-medium focus:outline-none text-white" />
+          </div>
+        </div>
+
+        <button onclick="handleSearch()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-blue-600/20">
+          Find Vehicles
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3: RESULTS FOR LEG -->
+    <div id="view-results" class="view-section">
+      <button onclick="showView('view-search')" class="text-blue-400 font-medium mb-6 flex items-center gap-2 hover:text-blue-300">
+        ← Back to Route Selection
+      </button>
+      <h2 class="text-2xl font-bold text-white mb-2">Select Vehicle</h2>
+      <p id="results-summary" class="text-gray-400 mb-8"></p>
+      
+      <div id="results-container" class="space-y-4"></div>
+    </div>
+
+    <!-- STEP 4: CHECKOUT -->
+    <div id="view-checkout" class="view-section">
+      <button onclick="showView('view-itinerary')" class="text-blue-400 font-medium mb-6 flex items-center gap-2 hover:text-blue-300">
+        ← Back to Itinerary
+      </button>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="md:col-span-2">
+          <div class="bg-gray-900 p-8 rounded-2xl shadow-xl border border-gray-800 mb-6">
+            <h2 class="text-2xl font-bold text-white mb-6">Brand & Customer Details</h2>
+            <div class="space-y-5">
+              <!-- BRAND SELECTION FIELD -->
+              <div>
+                <label class="block text-sm font-bold text-gray-300 mb-2">Select Brand *</label>
+                <select id="cust-brand" class="w-full p-3.5 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+                </select>
+                <p class="text-xs text-gray-400 mt-1">The selected brand's logo and company details will be printed on generated PDFs.</p>
+              </div>
+
+              <!-- MANUAL REFERENCE FIELD -->
+              <div>
+                <label class="block text-sm font-bold text-gray-300 mb-1">Manual Reference / Voucher Number (Optional)</label>
+                <input type="text" id="cust-ref" class="w-full p-3.5 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500" placeholder="e.g. REF-2026-99 (Leave blank for auto-generated)" />
+                <p class="text-xs text-gray-400 mt-1">This reference number will be printed on the voucher and invoice PDFs.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-gray-300 mb-1">Full Name *</label>
+                <input type="text" id="cust-name" class="w-full p-3.5 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500" placeholder="John Doe" />
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-bold text-gray-300 mb-1">Email Address *</label>
+                  <input type="email" id="cust-email" class="w-full p-3.5 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500" placeholder="john@example.com" />
+                </div>
+                <div>
+                  <label class="block text-sm font-bold text-gray-300 mb-1">Phone / WhatsApp *</label>
+                  <input type="tel" id="cust-phone" class="w-full p-3.5 bg-gray-800 border border-gray-700 text-white rounded-xl focus:ring-2 focus:ring-blue-500 outline-none placeholder-gray-500" placeholder="+966..." />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-1">
+          <div class="bg-gray-900 border border-gray-800 text-white p-6 rounded-2xl shadow-xl sticky top-6">
+            <h3 class="font-bold text-lg mb-4 border-b border-gray-800 pb-4">Order Summary</h3>
+            <div class="flex justify-between items-center mb-6">
+              <span class="text-gray-400" id="checkout-leg-count"></span>
+              <span id="checkout-total" class="text-2xl font-black text-blue-400"></span>
+            </div>
+            
+            <button onclick="confirmBooking()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 flex justify-center items-center gap-2">
+              Confirm Booking
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: SUCCESS VIEW -->
+    <div id="view-success" class="view-section">
+      <div class="max-w-2xl mx-auto bg-gray-900 p-10 rounded-3xl shadow-2xl border border-gray-800 text-center">
+        <div class="w-20 h-20 bg-green-900/30 border border-green-500/30 text-green-400 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">✓</div>
+        <h1 class="text-3xl font-black text-white mb-2">Booking Confirmed!</h1>
+        <p class="text-gray-400 mb-2">
+          Selected Brand: <strong id="success-brand" class="text-blue-400"></strong>
+        </p>
+        <p class="text-gray-400 mb-8">
+          Your reference number is <strong id="success-ref" class="text-white"></strong><br>
+          <span class="text-sm">Confirmation sent to: <strong id="success-email" class="text-gray-300"></strong></span>
+        </p>
+
+        <!-- DOWNLOAD BUTTONS -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          <button onclick="downloadPDF('invoice')" class="p-5 border-2 border-blue-500/50 bg-blue-950/20 text-blue-400 hover:bg-blue-900/30 rounded-2xl font-bold flex flex-col items-center justify-center transition-all">
+            <span class="text-2xl mb-1">📄</span>
+            Download Invoice
+            <span class="text-xs font-normal text-gray-400 mt-1">Includes Prices & Totals</span>
+          </button>
+          
+          <button onclick="downloadPDF('voucher')" class="p-5 border-2 border-gray-700 bg-gray-800/40 text-gray-200 hover:bg-gray-800 rounded-2xl font-bold flex flex-col items-center justify-center transition-all">
+            <span class="text-2xl mb-1">🎟️</span>
+            Download Voucher
+            <span class="text-xs font-normal text-gray-400 mt-1">No Prices (For Driver/Guest)</span>
+          </button>
+        </div>
+
+        <button onclick="location.reload()" class="font-bold text-gray-500 hover:text-gray-300 underline">
+          Start a New Booking
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // Brand logos mapping
+    const BRANDS = {
+      "Emenac Travel": "https://admin.emenactravel.co.uk/storage/uploads/settings/1755082130_logo.svg",
+      "Bismillah Travel": "https://s3-eu-west-1.amazonaws.com/tpd/logos/67229285fa8fb942dcd6ee0a/0x0.png",
+      "Zippy Holidays": "https://lh3.googleusercontent.com/d/1hzTM-IsPbAO1pBT3lkJK4wlJ2S8DjS5Q",
+      "Makkah Travel": "https://lh3.googleusercontent.com/d/1zcwCxzztE6qk3vq0U_pekhOJFqGEQKgO",
+      "Kaabah Tours": "https://lh3.googleusercontent.com/d/1vT4QiDYG_KdipynaXIKopzYhcFA3R1MU",
+      "Bismillah Tours": "https://lh3.googleusercontent.com/d/1qwi_s46hfEUlUFGfbKq38pYiXSPgkzZh"
+    };
+
+    const VEHICLES = [
+      { id: 'v_car', name: 'Car', pax: 3, img: '🚙' },
+      { id: 'v_car_new', name: 'Car New Model', pax: 3, img: '🚘' },
+      { id: 'v_h1', name: 'H1', pax: 7, img: '🚐' },
+      { id: 'v_staria', name: 'Staria', pax: 7, img: '🚐' },
+      { id: 'v_hiace', name: 'Hiace', pax: 10, img: '🚐' },
+      { id: 'v_gmc', name: 'GMC', pax: 7, img: '🚘' },
+      { id: 'v_gmc_latest', name: 'GMC Latest 25/26', pax: 7, img: '🚘' },
+      { id: 'v_coaster', name: 'Coaster', pax: 20, img: '🚌' }
+    ];
+
+    const ROUTES_DATA = {
+      "Jeddah Airport to Makkah Hotel": { v_car: 225, v_car_new: 285, v_h1: 245, v_staria: 245, v_hiace: 345, v_gmc: 395, v_gmc_latest: 505, v_coaster: 595 },
+      "Makkah Hotel to Jeddah Airport": { v_car: 195, v_car_new: 275, v_h1: 225, v_staria: 225, v_hiace: 295, v_gmc: 345, v_gmc_latest: 405, v_coaster: 505 },
+      "Makkah Hotel to Madinah": { v_car: 345, v_car_new: 505, v_h1: 395, v_staria: 395, v_hiace: 545, v_gmc: 895, v_gmc_latest: 1005, v_coaster: 1005 },
+      "Madinah to Makkah": { v_car: 345, v_car_new: 505, v_h1: 395, v_staria: 395, v_hiace: 545, v_gmc: 895, v_gmc_latest: 1005, v_coaster: 1005 },
+      "Jeddah Airport to Madinah": { v_car: 395, v_car_new: 545, v_h1: 445, v_staria: 445, v_hiace: 565, v_gmc: 895, v_gmc_latest: 1105, v_coaster: 1085 },
+      "Madinah to Jeddah": { v_car: 395, v_car_new: 545, v_h1: 445, v_staria: 445, v_hiace: 565, v_gmc: 895, v_gmc_latest: 1105, v_coaster: 1085 },
+      "Madinah Airport to Madinah Hotel": { v_car: 145, v_car_new: 235, v_h1: 175, v_staria: 175, v_hiace: 245, v_gmc: 295, v_gmc_latest: 325, v_coaster: 500 },
+      "Madinah Hotel to Madinah Airport": { v_car: 125, v_car_new: 200, v_h1: 145, v_staria: 145, v_hiace: 195, v_gmc: 245, v_gmc_latest: 295, v_coaster: 455 },
+      "Jeddah Airport to Jeddah City": { v_car: 145, v_car_new: 245, v_h1: 165, v_staria: 165, v_hiace: 195, v_gmc: 245, v_gmc_latest: 405, v_coaster: 435 },
+      "Jeddah City to Jeddah Airport": { v_car: 145, v_car_new: 245, v_h1: 165, v_staria: 165, v_hiace: 195, v_gmc: 245, v_gmc_latest: 405, v_coaster: 435 },
+      "Ziyarat Madinah": { v_car: 215, v_car_new: 255, v_h1: 225, v_staria: 225, v_hiace: 295, v_gmc: 395, v_gmc_latest: 450, v_coaster: 455 },
+      "Ziyarat Makkah": { v_car: 215, v_car_new: 255, v_h1: 225, v_staria: 225, v_hiace: 295, v_gmc: 395, v_gmc_latest: 450, v_coaster: 455 },
+      "Makkah Hotel to Makkah Train Station": { v_car: 145, v_car_new: 180, v_h1: 165, v_staria: 165, v_hiace: 195, v_gmc: 205, v_gmc_latest: 305, v_coaster: 365 },
+      "Makkah Train Station to Makkah Hotel": { v_car: 145, v_car_new: 180, v_h1: 165, v_staria: 165, v_hiace: 195, v_gmc: 205, v_gmc_latest: 305, v_coaster: 365 },
+      "Madinah Hotel to Madinah Train Station": { v_car: 145, v_car_new: 180, v_h1: 165, v_staria: 165, v_hiace: 195, v_gmc: 245, v_gmc_latest: 305, v_coaster: 365 },
+      "Madinah Train Station to Madinah Hotel": { v_car: 145, v_car_new: 180, v_h1: 165, v_staria: 165, v_hiace: 195, v_gmc: 245, v_gmc_latest: 305, v_coaster: 365 }
+    };
+
+    let itinerary = [];
+    let currentLeg = {};
+    let finalizedBooking = null;
+
+    function init() {
+      // Populate Route Options
+      const routeSelect = document.getElementById('search-route');
+      Object.keys(ROUTES_DATA).forEach(routeName => {
+        routeSelect.add(new Option(routeName, routeName));
+      });
+      
+      // Populate Brand Options
+      const brandSelect = document.getElementById('cust-brand');
+      Object.keys(BRANDS).forEach(brandName => {
+        brandSelect.add(new Option(brandName, brandName));
+      });
+
+      document.getElementById('search-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('search-time').value = "10:00"; 
+    }
+
+    function showView(viewId) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+      window.scrollTo(0,0);
+      
+      if(viewId === 'view-itinerary') renderItinerary();
+      if(viewId === 'view-checkout') renderCheckoutSummary();
+    }
+
+    function handleSearch() {
+      const selectedRouteName = document.getElementById('search-route').value;
+      const paxCount = parseInt(document.getElementById('search-pax').value);
+      
+      currentLeg = {
+        id: Date.now().toString(),
+        routeName: selectedRouteName,
+        date: document.getElementById('search-date').value,
+        time: document.getElementById('search-time').value,
+        pax: paxCount
+      };
+
+      const pricesForRoute = ROUTES_DATA[selectedRouteName];
+
+      const availableVehicles = VEHICLES
+        .filter(v => v.pax >= paxCount)
+        .map(v => ({ ...v, price: pricesForRoute[v.id] }))
+        .sort((a, b) => a.price - b.price);
+
+      const summaryText = `${selectedRouteName} • ${currentLeg.date} at ${currentLeg.time} • ${paxCount} Passenger(s)`;
+      document.getElementById('results-summary').innerText = summaryText;
+
+      const container = document.getElementById('results-container');
+      container.innerHTML = ''; 
+
+      if (availableVehicles.length === 0) {
+        container.innerHTML = `<div class="bg-gray-900 p-8 rounded-xl text-center text-gray-400 border border-gray-800">No vehicles available with capacity for ${paxCount} passengers.</div>`;
+      } else {
+        availableVehicles.forEach(v => {
+          const vehicleJSON = JSON.stringify(v).replace(/"/g, '&quot;');
+          container.innerHTML += `
+            <div class="bg-gray-900 p-6 rounded-2xl shadow-md border border-gray-800 flex items-center justify-between gap-6">
+              <div class="flex items-center gap-6">
+                <div class="text-5xl">${v.img}</div>
+                <div>
+                  <h3 class="text-xl font-bold text-white">${v.name}</h3>
+                  <p class="text-sm text-gray-400">Capacity: Up to ${v.pax} Passengers • <span class="text-blue-400 font-semibold">SAR ${v.price}</span></p>
+                </div>
+              </div>
+              <button onclick="addLegToItinerary(${vehicleJSON})" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-600/20">Add Route</button>
+            </div>`;
+        });
+      }
+      showView('view-results');
+    }
+
+    function addLegToItinerary(vehicle) {
+      currentLeg.vehicle = vehicle;
+      currentLeg.price = vehicle.price;
+      itinerary.push(currentLeg);
+      currentLeg = {}; 
+      showView('view-itinerary');
+    }
+
+    function removeLeg(id) {
+      itinerary = itinerary.filter(leg => leg.id !== id);
+      renderItinerary();
+    }
+
+    function renderItinerary() {
+      const emptyState = document.getElementById('itinerary-empty');
+      const listState = document.getElementById('itinerary-list-container');
+      const itemsContainer = document.getElementById('itinerary-items');
+      
+      if(itinerary.length === 0) {
+        emptyState.style.display = 'block';
+        listState.style.display = 'none';
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      listState.style.display = 'block';
+      itemsContainer.innerHTML = '';
+      
+      let total = 0;
+
+      itinerary.forEach((leg, index) => {
+        total += leg.price;
+        itemsContainer.innerHTML += `
+          <div class="bg-gray-900 p-6 rounded-2xl shadow-md border border-gray-800 flex justify-between items-center">
+            <div>
+              <div class="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Route ${index + 1} • ${leg.date} at ${leg.time}</div>
+              <div class="font-bold text-lg text-white">${leg.routeName}</div>
+              <div class="text-sm text-gray-400 mt-1">Vehicle: <strong class="text-gray-200">${leg.vehicle.name}</strong> • Passengers: <strong class="text-gray-200">${leg.pax} Pax</strong> • Price: <strong class="text-blue-400">SAR ${leg.price}</strong></div>
+            </div>
+            <button onclick="removeLeg('${leg.id}')" class="text-red-400 hover:text-red-300 p-2 text-sm font-bold transition-colors">Remove</button>
+          </div>
+        `;
+      });
+
+      document.getElementById('itinerary-total').innerText = `SAR ${total}`;
+    }
+
+    function renderCheckoutSummary() {
+      document.getElementById('checkout-leg-count').innerText = `${itinerary.length} Route(s)`;
+      const total = itinerary.reduce((sum, leg) => sum + leg.price, 0);
+      document.getElementById('checkout-total').innerText = `SAR ${total}`;
+    }
+
+    function confirmBooking() {
+      const brandName = document.getElementById('cust-brand').value;
+      const manualRef = document.getElementById('cust-ref').value.trim();
+      const name = document.getElementById('cust-name').value;
+      const email = document.getElementById('cust-email').value;
+      const phone = document.getElementById('cust-phone').value;
+
+      if(!name || !email) {
+        alert('Please enter your name and email to confirm the booking.');
+        return;
+      }
+
+      const ref = manualRef !== '' ? manualRef : ('REF-' + Math.floor(Math.random() * 900000 + 100000));
+      const brandLogoUrl = BRANDS[brandName];
+      
+      finalizedBooking = {
+        brandName,
+        brandLogoUrl,
+        name, email, phone, ref,
+        dateIssued: new Date().toLocaleDateString(),
+        itinerary: [...itinerary],
+        total: itinerary.reduce((sum, leg) => sum + leg.price, 0)
+      };
+
+      document.getElementById('success-brand').innerText = brandName;
+      document.getElementById('success-ref').innerText = ref;
+      document.getElementById('success-email').innerText = email;
+      showView('view-success');
+    }
+
+    function getBase64ImageFromUrl(imgUrl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.setAttribute('crossOrigin', 'anonymous');
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width || img.naturalWidth || 300;
+          canvas.height = img.height || img.naturalHeight || 100;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = (e) => reject(e);
+        img.src = imgUrl;
+      });
+    }
+
+    async function downloadPDF(type) {
+      if (!finalizedBooking) return;
+      const b = finalizedBooking;
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      // Brand Logo rendering with fallback text
+      try {
+        const logoData = await getBase64ImageFromUrl(b.brandLogoUrl);
+        doc.addImage(logoData, 'PNG', 14, 10, 42, 16);
+      } catch(e) {
+        doc.setFontSize(16);
+        doc.setTextColor(30, 58, 138);
+        doc.setFont("helvetica", "bold");
+        doc.text(b.brandName.toUpperCase(), 14, 20);
+      }
+
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.setFont("helvetica", "normal");
+      doc.text(type === 'invoice' ? "Official Booking Invoice" : "Transfer Voucher", 14, 32);
+      
+      // Header metadata (Right side)
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text(`Reference: ${b.ref}`, 135, 18);
+      doc.text(`Date Issued: ${b.dateIssued}`, 135, 24);
+      doc.text(`Status: ${type === 'invoice' ? 'PENDING PAYMENT' : 'CONFIRMED'}`, 135, 30);
+
+      // Customer Information Section
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Customer Information:", 14, 46);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Name: ${b.name}`, 14, 53);
+      doc.text(`Email: ${b.email}`, 14, 59);
+      doc.text(`Phone: ${b.phone}`, 14, 65);
+
+      const cleanRouteName = (name) => name.replace(/→|->/g, 'to');
+
+      let tableHead = [];
+      let tableData = [];
+
+      if (type === 'invoice') {
+        tableHead = [['#', 'Date & Time', 'Route Name', 'Vehicle Type', 'Passengers', 'Price']];
+        tableData = b.itinerary.map((leg, index) => [
+          (index + 1).toString(),
+          `${leg.date}\n${leg.time}`,
+          cleanRouteName(leg.routeName),
+          leg.vehicle.name,
+          `${leg.pax} Pax`,
+          `SAR ${leg.price}`
+        ]);
+        tableData.push([{ content: 'Total Amount', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, `SAR ${b.total}`]);
+      } else {
+        tableHead = [['#', 'Date & Time', 'Route Name', 'Vehicle Type', 'Passengers']];
+        tableData = b.itinerary.map((leg, index) => [
+          (index + 1).toString(),
+          `${leg.date}\n${leg.time}`,
+          cleanRouteName(leg.routeName),
+          leg.vehicle.name,
+          `${leg.pax} Pax`
+        ]);
+      }
+
+      doc.autoTable({
+        startY: 73,
+        head: tableHead,
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: type === 'invoice' ? [37, 99, 235] : [31, 41, 55] },
+        styles: { fontSize: 10, cellPadding: 4 },
+      });
+
+      const finalY = doc.lastAutoTable.finalY || 73;
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text(
+        type === 'invoice' 
+          ? `Thank you for booking with ${b.brandName}.` 
+          : "Important: Please present this voucher to your driver at pickup.", 
+        14, 
+        finalY + 15
+      );
+
+      const safeBrandFilename = b.brandName.replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = type === 'invoice' 
+        ? `${safeBrandFilename}_Invoice_${b.ref}.pdf` 
+        : `${safeBrandFilename}_Voucher_${b.ref}.pdf`;
+        
+      doc.save(filename);
+    }
+
+    init();
+  </script>
+</body>
+</html>
